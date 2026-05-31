@@ -1,0 +1,294 @@
+{
+  "info": {
+    "name": "Banco DDD — Autenticación",
+    "description": "Colección completa del módulo de autenticación enterprise.\n\n**Flujo recomendado:**\n1. Ejecutar `Login` → los tokens se guardan automáticamente\n2. Usar `GET /me` para verificar el perfil\n3. Ejecutar `Refresh Token` cuando el access token expire\n4. Ejecutar `Logout` para cerrar sesión\n\n**Variables de entorno requeridas:**\n- `baseUrl`: http://localhost:8080/api\n- `accessToken`: (se llena automáticamente con el script post-login)\n- `refreshToken`: (se llena automáticamente con el script post-login)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",      "value": "http://localhost:8080/api", "type": "string" },
+    { "key": "accessToken",  "value": "",                          "type": "string" },
+    { "key": "refreshToken", "value": "",                          "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correoElectronico\": \"admin@banco.com\",\n  \"password\": \"Banco2026!\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "login"]
+        },
+        "description": "Autentica al usuario. Guarda automáticamente accessToken y refreshToken en variables de entorno."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "if (response.success && response.data) {",
+              "    pm.environment.set('accessToken',  response.data.accessToken);",
+              "    pm.environment.set('refreshToken', response.data.refreshToken);",
+              "    pm.test('Login exitoso', () => pm.response.to.have.status(200));",
+              "    pm.test('Access token presente', () => pm.expect(response.data.accessToken).to.not.be.empty);",
+              "    pm.test('Refresh token presente', () => pm.expect(response.data.refreshToken).to.not.be.empty);",
+              "    console.log('✅ Tokens guardados. Usuario:', response.data.nombreCompleto, '| Rol:', response.data.rol);",
+              "} else {",
+              "    pm.test('Login fallido', () => pm.response.to.have.status(200));",
+              "    console.error('❌ Login fallido:', response.message);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 GET /me — Perfil del usuario",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "me"]
+        },
+        "description": "Retorna el perfil completo del usuario autenticado."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Perfil obtenido', () => pm.response.to.have.status(200));",
+              "const r = pm.response.json();",
+              "pm.test('Tiene idUsuario', () => pm.expect(r.data.idUsuario).to.be.a('number'));",
+              "pm.test('Tiene rol', () => pm.expect(r.data.rol).to.not.be.empty);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔄 Refresh Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "refresh"]
+        },
+        "description": "Rota el refresh token y emite un nuevo par de tokens JWT. El refresh token anterior queda revocado."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "if (response.success && response.data) {",
+              "    pm.environment.set('accessToken',  response.data.accessToken);",
+              "    pm.environment.set('refreshToken', response.data.refreshToken);",
+              "    pm.test('Refresh exitoso', () => pm.response.to.have.status(200));",
+              "    console.log('✅ Tokens rotados correctamente');",
+              "} else {",
+              "    console.error('❌ Refresh fallido:', response.message);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔑 Cambiar Contraseña",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"passwordActual\":       \"Banco2026!\",\n  \"passwordNuevo\":        \"NuevaClave2026#\",\n  \"passwordConfirmacion\": \"NuevaClave2026#\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/change-password",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "change-password"]
+        },
+        "description": "Cambia la contraseña del usuario autenticado. Revoca todos los tokens activos — requiere re-login."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Contraseña cambiada', () => pm.response.to.have.status(200));",
+              "pm.environment.set('accessToken',  '');",
+              "pm.environment.set('refreshToken', '');",
+              "console.log('⚠️ Tokens limpiados — debe hacer login nuevamente');"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Reset Contraseña (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correoElectronico\":    \"usuario@banco.com\",\n  \"passwordNuevo\":        \"Reset2026!\",\n  \"passwordConfirmacion\": \"Reset2026!\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/reset-password",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "reset-password"]
+        },
+        "description": "Reset administrativo de contraseña. Solo ADMINISTRADOR y SUPERVISOR_EMPRESA."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Reset exitoso o acceso denegado', () => {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 403]);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🚪 Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "logout"]
+        },
+        "description": "Cierra la sesión revocando access token y refresh token. Ambos quedan en la blacklist."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Logout exitoso', () => pm.response.to.have.status(200));",
+              "pm.environment.set('accessToken',  '');",
+              "pm.environment.set('refreshToken', '');",
+              "console.log('✅ Sesión cerrada. Tokens limpiados.');"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧪 [Test] Login con credenciales inválidas",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"correoElectronico\": \"noexiste@banco.com\",\n  \"password\": \"WrongPass123!\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "login"]
+        },
+        "description": "Verifica que credenciales inválidas retornen 401."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Retorna 401 para credenciales inválidas', () => pm.response.to.have.status(401));",
+              "const r = pm.response.json();",
+              "pm.test('success es false', () => pm.expect(r.success).to.be.false);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "🧪 [Test] Usar refresh token revocado",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["v1", "auth", "refresh"]
+        },
+        "description": "Ejecutar DESPUÉS de Logout para verificar que el refresh token fue revocado."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Token revocado retorna 401', () => pm.response.to.have.status(401));",
+              "const r = pm.response.json();",
+              "pm.test('success es false', () => pm.expect(r.success).to.be.false);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

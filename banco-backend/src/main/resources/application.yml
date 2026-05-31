@@ -1,0 +1,119 @@
+spring:
+  application:
+    name: banco-ddd-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/banco_ddd?useSSL=false&serverTimezone=America/Bogota&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: BancoDDD-HikariPool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+      connection-test-query: SELECT 1
+
+  jpa:
+    hibernate:
+      # none: no modifica el esquema. La BD ya tiene toda su estructura.
+      # Cambiar a 'validate' una vez que V1__credencial_usuario.sql esté ejecutado.
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          time_zone: America/Bogota
+    open-in-view: false
+
+  jackson:
+    time-zone: America/Bogota
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /api
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:BancoDDD2026SecretKeyMustBe256BitsLongForHS256Algorithm!!}
+  expiration-ms: ${JWT_EXPIRATION_MS:86400000}       # 24 horas
+  refresh-expiration-ms: ${JWT_REFRESH_MS:604800000} # 7 días
+  issuer: banco-ddd-backend
+
+# Rate Limiting (en memoria — usar Redis en producción multi-instancia)
+rate-limiting:
+  login:
+    max-requests: ${RATE_LIMIT_LOGIN:10}
+    window-seconds: 60
+  refresh:
+    max-requests: ${RATE_LIMIT_REFRESH:20}
+    window-seconds: 60
+
+# Springdoc / Swagger
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+    try-it-out-enabled: true
+  show-actuator: false
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.banco.ddd: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId}] %logger{36} - %msg%n"
+  file:
+    name: logs/banco-ddd.log
+    max-size: 10MB
+    max-history: 30
+
+# CORS
+cors:
+  allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:4200}
+  allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+  allowed-headers: "*"
+  allow-credentials: true
+  max-age: 3600
+
+# App custom properties
+app:
+  name: Banco DDD Backend
+  version: 1.0.0
+  environment: ${APP_ENV:development}

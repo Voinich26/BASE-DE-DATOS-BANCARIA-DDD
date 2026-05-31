@@ -1,0 +1,86 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Docker Compose Production Configuration - Enterprise Banking Frontend
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+  banco-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://banco-backend:8080/api}
+        NEXT_PUBLIC_APP_NAME: BancoDDD
+    image: banco-frontend:prod
+    container_name: banco-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://banco-backend:8080/api}
+      - NEXT_PUBLIC_APP_NAME=BancoDDD
+      - NEXT_TELEMETRY_DISABLED=1
+    expose:
+      - "3000"
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  banco-proxy:
+    image: nginx:stable-alpine
+    container_name: banco-proxy
+    restart: unless-stopped
+    depends_on:
+      banco-frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public:/usr/share/nginx/html/public:ro
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  banco-network:
+    external: true
+    name: banco-network
+

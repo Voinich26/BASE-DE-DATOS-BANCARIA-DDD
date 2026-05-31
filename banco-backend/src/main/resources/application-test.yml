@@ -1,0 +1,20 @@
+# ── Perfil: test ─────────────────────────────────────────────────────────────
+# Usado por BancoDddApplicationTests y pruebas unitarias.
+# Desactiva la validación del esquema para no requerir MySQL en CI.
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  datasource:
+    url: ${TEST_DB_URL:jdbc:mysql://localhost:3306/banco_ddd?useSSL=false&serverTimezone=America/Bogota&allowPublicKeyRetrieval=true}
+    username: ${TEST_DB_USERNAME:root}
+    password: ${TEST_DB_PASSWORD:}
+
+logging:
+  level:
+    root: WARN
+    com.banco.ddd: INFO

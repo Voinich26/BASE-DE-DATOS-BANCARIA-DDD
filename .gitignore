@@ -1,0 +1,36 @@
+# ── Secrets — NUNCA commitear ─────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
+*.suo
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Backend ───────────────────────────────────────────────────────────────────
+banco-backend/target/
+banco-backend/logs/
+banco-backend/*.log
+banco-backend/*.gz
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+banco-frontend/node_modules/
+banco-frontend/.next/
+banco-frontend/out/
+banco-frontend/build/
+banco-frontend/coverage/
+banco-frontend/*.tsbuildinfo
+banco-frontend/next-env.d.ts
+
+# ── Prompts de desarrollo (no son parte del producto) ────────────────────────
+Prompts/

@@ -1,0 +1,207 @@
+{
+  "info": {
+    "_postman_id": "bc06-lote-transferencia-2026",
+    "name": "Banco DDD — BC-06 Pagos Masivos",
+    "description": "Colección enterprise completa para el módulo de Pagos Masivos y Nómina Empresarial (BC-06).\n\nFlujo completo:\n1. Login como empresa → obtener token\n2. Crear lote de pagos\n3. Procesar lote (supervisor)\n4. Consultar detalle y timeline\n5. Dashboard y métricas",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",      "value": "http://localhost:8080/api", "type": "string" },
+    { "key": "tokenEmpresa", "value": "",                          "type": "string" },
+    { "key": "tokenSupervisor", "value": "",                       "type": "string" },
+    { "key": "tokenAnalista",   "value": "",                       "type": "string" },
+    { "key": "idLote",       "value": "",                          "type": "string" },
+    { "key": "nitEmpresa",   "value": "900123456-1",               "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "0. Auth",
+      "item": [
+        {
+          "name": "Login Empresa",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.data && json.data.accessToken) {",
+            "  pm.collectionVariables.set('tokenEmpresa', json.data.accessToken);",
+            "  pm.test('Token empresa guardado', () => pm.expect(json.data.accessToken).to.not.be.empty);",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/v1/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"correoElectronico\": \"empresa@abc.com\",\n  \"password\": \"Empresa123!\"\n}" }
+          }
+        },
+        {
+          "name": "Login Supervisor",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.data && json.data.accessToken) {",
+            "  pm.collectionVariables.set('tokenSupervisor', json.data.accessToken);",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/v1/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"correoElectronico\": \"supervisor@banco.com\",\n  \"password\": \"Supervisor123!\"\n}" }
+          }
+        },
+        {
+          "name": "Login Analista",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "if (json.data && json.data.accessToken) {",
+            "  pm.collectionVariables.set('tokenAnalista', json.data.accessToken);",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/v1/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"correoElectronico\": \"analista@banco.com\",\n  \"password\": \"Analista123!\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Crear Lote",
+      "item": [
+        {
+          "name": "POST /v1/batches — Nómina Mayo 2026",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "var json = pm.response.json();",
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Lote creado', () => pm.expect(json.success).to.be.true);",
+            "if (json.data && json.data.idLote) {",
+            "  pm.collectionVariables.set('idLote', json.data.idLote);",
+            "  pm.test('idLote guardado: ' + json.data.idLote, () => true);",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }
+            ],
+            "url": "{{baseUrl}}/v1/batches",
+            "body": { "mode": "raw", "raw": "{\n  \"nitEmpresa\": \"{{nitEmpresa}}\",\n  \"concepto\": \"Nómina Mayo 2026\",\n  \"idUsuarioCreador\": 5,\n  \"transferencias\": [\n    {\n      \"cuentaOrigen\": \"001-123456789-0\",\n      \"cuentaDestino\": \"001-111111111-0\",\n      \"monto\": 1500000.00,\n      \"conceptoDetalle\": \"Salario empleado 001\"\n    },\n    {\n      \"cuentaOrigen\": \"001-123456789-0\",\n      \"cuentaDestino\": \"001-222222222-0\",\n      \"monto\": 1800000.00,\n      \"conceptoDetalle\": \"Salario empleado 002\"\n    },\n    {\n      \"cuentaOrigen\": \"001-123456789-0\",\n      \"cuentaDestino\": \"001-333333333-0\",\n      \"monto\": 1200000.00,\n      \"conceptoDetalle\": \"Salario empleado 003\"\n    }\n  ]\n}" }
+          }
+        },
+        {
+          "name": "POST /v1/batches — Validación: lote vacío (debe fallar 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }
+            ],
+            "url": "{{baseUrl}}/v1/batches",
+            "body": { "mode": "raw", "raw": "{\n  \"nitEmpresa\": \"{{nitEmpresa}}\",\n  \"concepto\": \"Lote vacío\",\n  \"idUsuarioCreador\": 5,\n  \"transferencias\": []\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Consultas",
+      "item": [
+        {
+          "name": "GET /v1/batches — Historial paginado",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }],
+            "url": { "raw": "{{baseUrl}}/v1/batches?page=0&size=10&sortBy=fechaCreacion&sortDir=desc", "host": ["{{baseUrl}}"], "path": ["v1","batches"], "query": [{"key":"page","value":"0"},{"key":"size","value":"10"},{"key":"sortBy","value":"fechaCreacion"},{"key":"sortDir","value":"desc"}] }
+          }
+        },
+        {
+          "name": "GET /v1/batches — Filtrar por estado Pendiente",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenSupervisor}}" }],
+            "url": { "raw": "{{baseUrl}}/v1/batches?estado=Pendiente&page=0&size=20", "host": ["{{baseUrl}}"], "path": ["v1","batches"], "query": [{"key":"estado","value":"Pendiente"},{"key":"page","value":"0"},{"key":"size","value":"20"}] }
+          }
+        },
+        {
+          "name": "GET /v1/batches/{id} — Detalle completo",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }],
+            "url": "{{baseUrl}}/v1/batches/{{idLote}}"
+          }
+        },
+        {
+          "name": "GET /v1/batches/{id}/details — Ítems paginados",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }],
+            "url": { "raw": "{{baseUrl}}/v1/batches/{{idLote}}/details?page=0&size=50", "host": ["{{baseUrl}}"], "path": ["v1","batches","{{idLote}}","details"], "query": [{"key":"page","value":"0"},{"key":"size","value":"50"}] }
+          }
+        },
+        {
+          "name": "GET /v1/batches/{id}/timeline — Timeline de eventos",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }],
+            "url": "{{baseUrl}}/v1/batches/{{idLote}}/timeline"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Procesar / Rechazar",
+      "item": [
+        {
+          "name": "POST /v1/batches/{id}/process — Procesar lote",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "var json = pm.response.json();",
+            "pm.test('Lote procesado', () => pm.expect(json.data.estadoLote).to.equal('Procesado'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenSupervisor}}" }
+            ],
+            "url": "{{baseUrl}}/v1/batches/{{idLote}}/process",
+            "body": { "mode": "raw", "raw": "{\n  \"idSupervisor\": 3\n}" }
+          }
+        },
+        {
+          "name": "POST /v1/batches/{id}/reject — Rechazar lote",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{tokenSupervisor}}" }
+            ],
+            "url": "{{baseUrl}}/v1/batches/{{idLote}}/reject",
+            "body": { "mode": "raw", "raw": "{\n  \"idSupervisor\": 3,\n  \"motivo\": \"Saldo insuficiente en cuenta empresarial principal\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Dashboard y Métricas",
+      "item": [
+        {
+          "name": "GET /v1/batches/dashboard — Dashboard empresa",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenEmpresa}}" }],
+            "url": "{{baseUrl}}/v1/batches/dashboard"
+          }
+        },
+        {
+          "name": "GET /v1/batches/metrics — Métricas globales (Analista)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{tokenAnalista}}" }],
+            "url": "{{baseUrl}}/v1/batches/metrics"
+          }
+        }
+      ]
+    }
+  ]
+}

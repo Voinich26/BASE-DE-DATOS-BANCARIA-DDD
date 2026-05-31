@@ -1,0 +1,151 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Full Stack Docker Compose - BancoDDD Enterprise
+# Frontend + Backend + MySQL Integration
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: "3.9"
+
+services:
+  # ── MySQL Database ───────────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: banco-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: banco_ddd
+      MYSQL_USER: banco_user
+      MYSQL_PASSWORD: banco_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Backend Spring Boot ───────────────────────────────────────────────────────────
+  banco-backend:
+    build:
+      context: ../banco-backend
+      dockerfile: Dockerfile
+    image: banco-backend:latest
+    container_name: banco-backend
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/banco_ddd
+      - SPRING_DATASOURCE_USERNAME=banco_user
+      - SPRING_DATASOURCE_PASSWORD=banco_password
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=false
+      - JWT_SECRET=your-secret-key-change-in-production
+      - JWT_EXPIRATION=3600000
+      - SERVER_PORT=8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # ── Frontend Next.js ───────────────────────────────────────────────────────────────
+  banco-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://banco-backend:8080/api
+        NEXT_PUBLIC_APP_NAME: BancoDDD
+    image: banco-frontend:latest
+    container_name: banco-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://banco-backend:8080/api
+      - NEXT_PUBLIC_APP_NAME=BancoDDD
+      - NEXT_PUBLIC_APP_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_ENABLE_DEMO_MODE=false
+    expose:
+      - "3000"
+    depends_on:
+      banco-backend:
+        condition: service_healthy
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  # ── Nginx Reverse Proxy ───────────────────────────────────────────────────────────
+  banco-proxy:
+    image: nginx:stable-alpine
+    container_name: banco-proxy
+    restart: unless-stopped
+    depends_on:
+      banco-frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public:/usr/share/nginx/html/public:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+networks:
+  banco-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

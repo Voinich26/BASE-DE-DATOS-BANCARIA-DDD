@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  banco-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api}
+        NEXT_PUBLIC_APP_NAME: BancoDDD
+    image: banco-frontend:latest
+    container_name: banco-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://banco-backend:8080/api}
+      - NEXT_PUBLIC_APP_NAME=BancoDDD
+    restart: unless-stopped
+    networks:
+      - banco-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  banco-network:
+    external: true
+    name: banco-network

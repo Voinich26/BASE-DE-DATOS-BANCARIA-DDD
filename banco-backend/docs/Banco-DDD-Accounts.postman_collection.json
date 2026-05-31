@@ -1,0 +1,277 @@
+{
+  "info": {
+    "name": "Banco DDD — Cuentas Bancarias (BC-03)",
+    "description": "Colección completa del módulo de cuentas bancarias.\n\n**Flujo completo:**\n1. Login → obtener tokens\n2. Crear cuenta\n3. Depositar\n4. Retirar\n5. Ver resumen\n6. Bloquear\n7. Reactivar\n8. Cancelar (requiere saldo = 0)\n\n**Variables requeridas:** baseUrl, accessToken",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",       "value": "http://localhost:8080/api", "type": "string" },
+    { "key": "accessToken",   "value": "",                          "type": "string" },
+    { "key": "numeroCuenta",  "value": "001-123456789-0",           "type": "string" },
+    { "key": "idTitular",     "value": "1234567890",                "type": "string" },
+    { "key": "idUsuario",     "value": "1",                         "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🏦 Crear Cuenta",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCuenta\":      \"{{numeroCuenta}}\",\n  \"nombreTipoCuenta\":  \"Ahorros\",\n  \"idTitular\":         \"{{idTitular}}\",\n  \"tipoTitular\":       \"PERSONA_NATURAL\",\n  \"codigoIsoMoneda\":   \"COP\",\n  \"saldoInicial\":      500000.00,\n  \"idUsuarioApertura\": {{idUsuario}}\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/accounts", "host": ["{{baseUrl}}"], "path": ["v1","accounts"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Cuenta creada (201)', () => pm.response.to.have.status(201));",
+          "const r = pm.response.json();",
+          "pm.test('Tiene numeroCuenta', () => pm.expect(r.data.numeroCuenta).to.not.be.empty);"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "📋 Obtener Cuenta",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/accounts/{{numeroCuenta}}", "host": ["{{baseUrl}}"], "path": ["v1","accounts","{{numeroCuenta}}"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Cuenta encontrada (200)', () => pm.response.to.have.status(200));",
+          "const r = pm.response.json();",
+          "pm.test('Estado presente', () => pm.expect(r.data.estadoCuenta).to.not.be.empty);"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "🔍 Detalle Completo de Cuenta",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/accounts/{{numeroCuenta}}/detail", "host": ["{{baseUrl}}"], "path": ["v1","accounts","{{numeroCuenta}}","detail"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Detalle obtenido (200)', () => pm.response.to.have.status(200));",
+          "const r = pm.response.json();",
+          "pm.test('Tiene nombreTitular', () => pm.expect(r.data.nombreTitular).to.not.be.empty);"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "👥 Cuentas por Cliente",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/accounts/client/{{idTitular}}?page=0&size=10",
+          "host": ["{{baseUrl}}"], "path": ["v1","accounts","client","{{idTitular}}"],
+          "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "10" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Lista obtenida (200)', () => pm.response.to.have.status(200));",
+          "const r = pm.response.json();",
+          "pm.test('Tiene content', () => pm.expect(r.data.content).to.be.an('array'));"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "💰 Depositar",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCuenta\": \"{{numeroCuenta}}\",\n  \"monto\":        200000.00,\n  \"idUsuario\":    {{idUsuario}},\n  \"concepto\":     \"Depósito en efectivo ventanilla\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/accounts/deposit", "host": ["{{baseUrl}}"], "path": ["v1","accounts","deposit"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Depósito exitoso (200)', () => pm.response.to.have.status(200));",
+          "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "💸 Retirar",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCuenta\": \"{{numeroCuenta}}\",\n  \"monto\":        50000.00,\n  \"idUsuario\":    {{idUsuario}},\n  \"concepto\":     \"Retiro en efectivo ventanilla\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/accounts/withdraw", "host": ["{{baseUrl}}"], "path": ["v1","accounts","withdraw"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Retiro exitoso (200)', () => pm.response.to.have.status(200));",
+          "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "📊 Resumen de Movimientos",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/accounts/{{numeroCuenta}}/summary", "host": ["{{baseUrl}}"], "path": ["v1","accounts","{{numeroCuenta}}","summary"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Resumen obtenido (200)', () => pm.response.to.have.status(200));",
+          "const r = pm.response.json();",
+          "pm.test('Tiene saldoActual', () => pm.expect(r.data.saldoActual).to.be.a('number'));"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "📈 Dashboard Financiero",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/accounts/dashboard", "host": ["{{baseUrl}}"], "path": ["v1","accounts","dashboard"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Dashboard obtenido (200)', () => pm.response.to.have.status(200));",
+          "const r = pm.response.json();",
+          "pm.test('Tiene saldoTotalConsolidado', () => pm.expect(r.data.saldoTotalConsolidado).to.be.a('number'));",
+          "pm.test('Tiene cuentas', () => pm.expect(r.data.cuentas).to.be.an('array'));"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "🔒 Bloquear Cuenta",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"motivo\": \"Actividad sospechosa detectada — revisión de cumplimiento\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/accounts/{{numeroCuenta}}/block?idUsuario={{idUsuario}}",
+          "host": ["{{baseUrl}}"], "path": ["v1","accounts","{{numeroCuenta}}","block"],
+          "query": [{ "key": "idUsuario", "value": "{{idUsuario}}" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Cuenta bloqueada (200)', () => pm.response.to.have.status(200));",
+          "pm.test('success true', () => pm.expect(pm.response.json().success).to.be.true);"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "🔓 Reactivar Cuenta",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/accounts/{{numeroCuenta}}/reactivate?idUsuario={{idUsuario}}",
+          "host": ["{{baseUrl}}"], "path": ["v1","accounts","{{numeroCuenta}}","reactivate"],
+          "query": [{ "key": "idUsuario", "value": "{{idUsuario}}" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Cuenta reactivada (200)', () => pm.response.to.have.status(200));"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "❌ Cancelar Cuenta",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/accounts/{{numeroCuenta}}/cancel?idUsuario={{idUsuario}}",
+          "host": ["{{baseUrl}}"], "path": ["v1","accounts","{{numeroCuenta}}","cancel"],
+          "query": [{ "key": "idUsuario", "value": "{{idUsuario}}" }]
+        }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Cancelada (200) o saldo != 0 (422)', () => {",
+          "  pm.expect(pm.response.code).to.be.oneOf([200, 422]);",
+          "});"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "🧪 [Test] Retiro con saldo insuficiente",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"numeroCuenta\": \"{{numeroCuenta}}\",\n  \"monto\":        999999999.00,\n  \"idUsuario\":    {{idUsuario}},\n  \"concepto\":     \"Test saldo insuficiente\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/accounts/withdraw", "host": ["{{baseUrl}}"], "path": ["v1","accounts","withdraw"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Retorna 422 por saldo insuficiente', () => pm.response.to.have.status(422));",
+          "const r = pm.response.json();",
+          "pm.test('success false', () => pm.expect(r.success).to.be.false);",
+          "pm.test('Mensaje de saldo', () => pm.expect(r.message).to.include('Saldo'));"
+        ], "type": "text/javascript" }
+      }]
+    },
+    {
+      "name": "🧪 [Test] Acceso a cuenta de otro cliente",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/accounts/CUENTA-DE-OTRO-CLIENTE", "host": ["{{baseUrl}}"], "path": ["v1","accounts","CUENTA-DE-OTRO-CLIENTE"] }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('Retorna 403 o 404', () => {",
+          "  pm.expect(pm.response.code).to.be.oneOf([403, 404]);",
+          "});"
+        ], "type": "text/javascript" }
+      }]
+    }
+  ]
+}

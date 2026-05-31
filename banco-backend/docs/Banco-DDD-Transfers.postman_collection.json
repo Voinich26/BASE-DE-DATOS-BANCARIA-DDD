@@ -1,0 +1,265 @@
+{
+  "info": {
+    "name": "Banco DDD — Transferencias (BC-05)",
+    "description": "Colección completa del módulo de transferencias.\n\n**Flujo completo:**\n1. Login → obtener tokens\n2. Crear transferencia (monto bajo → ejecuta automáticamente)\n3. Crear transferencia (monto alto → queda en espera)\n4. Consultar pendientes\n5. Aprobar transferencia en espera\n6. Ver timeline de estados\n7. Ver dashboard y métricas\n\n**Variables requeridas:** baseUrl, accessToken, supervisorToken",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",       "value": "http://localhost:8080/api" },
+    { "key": "accessToken",   "value": "" },
+    { "key": "idTransferencia", "value": "1" },
+    { "key": "idSupervisor",  "value": "5" }
+  ],
+  "item": [
+    {
+      "name": "💸 Crear Transferencia (auto-ejecuta)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cuentaOrigen\":     \"001-123456789-0\",\n  \"cuentaDestino\":    \"001-987654321-0\",\n  \"monto\":            100000.00,\n  \"idUsuarioCreador\": 1\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/transfers", "host": ["{{baseUrl}}"], "path": ["v1","transfers"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "const r = pm.response.json();",
+        "if (r.success) pm.environment.set('idTransferencia', r.data.idTransferencia);",
+        "pm.test('Creada (201)', () => pm.response.to.have.status(201));",
+        "pm.test('Estado final o ejecutada', () => {",
+        "  pm.expect(['Ejecutada','En Espera de Aprobacion','Pendiente'])",
+        "    .to.include(r.data.estadoTransferencia);",
+        "});"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "💸 Crear Transferencia (requiere aprobación)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cuentaOrigen\":     \"001-123456789-0\",\n  \"cuentaDestino\":    \"001-987654321-0\",\n  \"monto\":            9999999.00,\n  \"idUsuarioCreador\": 1\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/transfers", "host": ["{{baseUrl}}"], "path": ["v1","transfers"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "const r = pm.response.json();",
+        "if (r.success) pm.environment.set('idTransferenciaEspera', r.data.idTransferencia);",
+        "pm.test('Creada (201)', () => pm.response.to.have.status(201));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "🔍 Obtener Transferencia",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/transfers/{{idTransferencia}}", "host": ["{{baseUrl}}"], "path": ["v1","transfers","{{idTransferencia}}"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Encontrada (200)', () => pm.response.to.have.status(200));",
+        "const r = pm.response.json();",
+        "pm.test('Tiene estado', () => pm.expect(r.data.estadoTransferencia).to.not.be.empty);"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "📋 Historial con filtros",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/transfers/history?page=0&size=10&sortBy=fechaCreacion&sortDir=desc",
+          "host": ["{{baseUrl}}"], "path": ["v1","transfers","history"],
+          "query": [
+            { "key": "page", "value": "0" }, { "key": "size", "value": "10" },
+            { "key": "sortBy", "value": "fechaCreacion" }, { "key": "sortDir", "value": "desc" }
+          ]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Historial (200)', () => pm.response.to.have.status(200));",
+        "pm.test('Tiene content', () => pm.expect(pm.response.json().data.content).to.be.an('array'));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "📋 Historial filtrado por estado",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/transfers/history?estado=Ejecutada&page=0&size=10",
+          "host": ["{{baseUrl}}"], "path": ["v1","transfers","history"],
+          "query": [{ "key": "estado", "value": "Ejecutada" }, { "key": "page", "value": "0" }, { "key": "size", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "🏦 Transferencias por cuenta",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/transfers/account/001-123456789-0?page=0&size=10",
+          "host": ["{{baseUrl}}"], "path": ["v1","transfers","account","001-123456789-0"],
+          "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "10" }]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Por cuenta (200)', () => pm.response.to.have.status(200));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "⏳ Transferencias Pendientes de Aprobación",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/transfers/pending?page=0&size=20",
+          "host": ["{{baseUrl}}"], "path": ["v1","transfers","pending"],
+          "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Pendientes (200)', () => pm.response.to.have.status(200));",
+        "const r = pm.response.json();",
+        "console.log('Pendientes de aprobación:', r.data.totalElements);"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "✅ Aprobar Transferencia",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/v1/transfers/{{idTransferenciaEspera}}/approve?idSupervisor={{idSupervisor}}",
+          "host": ["{{baseUrl}}"], "path": ["v1","transfers","{{idTransferenciaEspera}}","approve"],
+          "query": [{ "key": "idSupervisor", "value": "{{idSupervisor}}" }]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Aprobada (200) o estado inválido (422)', () => {",
+        "  pm.expect(pm.response.code).to.be.oneOf([200, 422]);",
+        "});",
+        "if (pm.response.code === 200) {",
+        "  const r = pm.response.json();",
+        "  pm.test('Estado Ejecutada o Aprobada', () => {",
+        "    pm.expect(['Ejecutada','Aprobada']).to.include(r.data.estadoTransferencia);",
+        "  });",
+        "}"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "❌ Rechazar Transferencia",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"idSupervisor\": {{idSupervisor}},\n  \"motivo\": \"Monto supera el límite autorizado para este perfil de cliente\"\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/transfers/{{idTransferenciaEspera}}/reject",
+          "host": ["{{baseUrl}}"], "path": ["v1","transfers","{{idTransferenciaEspera}}","reject"]
+        }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Rechazada (200) o estado inválido (422)', () => {",
+        "  pm.expect(pm.response.code).to.be.oneOf([200, 422]);",
+        "});"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "📊 Dashboard Transaccional",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/transfers/dashboard", "host": ["{{baseUrl}}"], "path": ["v1","transfers","dashboard"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Dashboard (200)', () => pm.response.to.have.status(200));",
+        "const r = pm.response.json();",
+        "pm.test('Tiene totalEnviadas', () => pm.expect(r.data.totalEnviadas).to.be.a('number'));",
+        "pm.test('Tiene montoTotalEnviado', () => pm.expect(r.data.montoTotalEnviado).to.be.a('number'));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "🕐 Timeline de Transferencia",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/transfers/{{idTransferencia}}/timeline", "host": ["{{baseUrl}}"], "path": ["v1","transfers","{{idTransferencia}}","timeline"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Timeline (200)', () => pm.response.to.have.status(200));",
+        "const r = pm.response.json();",
+        "pm.test('Tiene transiciones', () => pm.expect(r.data.transiciones).to.be.an('array'));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "📈 Métricas Operativas",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": { "raw": "{{baseUrl}}/v1/transfers/metrics", "host": ["{{baseUrl}}"], "path": ["v1","transfers","metrics"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Métricas (200)', () => pm.response.to.have.status(200));",
+        "const r = pm.response.json();",
+        "pm.test('Tiene distribucionPorEstado', () => pm.expect(r.data.distribucionPorEstado).to.be.an('object'));",
+        "pm.test('Tiene tasaExito', () => pm.expect(r.data.tasaExito).to.be.a('number'));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "🧪 [Test] Transferencia duplicada",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cuentaOrigen\":     \"001-123456789-0\",\n  \"cuentaDestino\":    \"001-987654321-0\",\n  \"monto\":            100000.00,\n  \"idUsuarioCreador\": 1\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/transfers", "host": ["{{baseUrl}}"], "path": ["v1","transfers"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Duplicado detectado (422)', () => pm.response.to.have.status(422));",
+        "const r = pm.response.json();",
+        "pm.test('Mensaje de duplicado', () => pm.expect(r.message).to.include('duplicada'));"
+      ], "type": "text/javascript" } }]
+    },
+    {
+      "name": "🧪 [Test] Ownership — cuenta ajena",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cuentaOrigen\":     \"CUENTA-DE-OTRO-CLIENTE\",\n  \"cuentaDestino\":    \"001-987654321-0\",\n  \"monto\":            100.00,\n  \"idUsuarioCreador\": 1\n}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": { "raw": "{{baseUrl}}/v1/transfers", "host": ["{{baseUrl}}"], "path": ["v1","transfers"] }
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('Retorna 403', () => pm.response.to.have.status(403));"
+      ], "type": "text/javascript" } }]
+    }
+  ]
+}
